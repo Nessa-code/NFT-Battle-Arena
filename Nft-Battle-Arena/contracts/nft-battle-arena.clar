@@ -101,7 +101,8 @@
     )
   )
 )
-;; NEW FUNCTION 1: Heal action - Players can heal instead of attacking
+
+;; Heal action - Players can heal instead of attacking
 (define-public (heal (battle-id uint) (heal-amount uint))
   (let
     (
@@ -148,7 +149,7 @@
   )
 )
 
-;; NEW FUNCTION 2: Forfeit battle - Player can surrender and end the battle
+;; Forfeit battle - Player can surrender and end the battle
 (define-public (forfeit-battle (battle-id uint))
   (let
     (
@@ -183,43 +184,7 @@
   )
 )
 
-;; NEW FUNCTION 3: Get active battles for a player
-(define-read-only (get-player-active-battles (player principal))
-  (let
-    (
-      (total-battles (var-get battle-counter))
-    )
-    (filter-active-battles player u1 total-battles (list))
-  )
-)
-
-;; Helper function for filtering active battles
-(define-private (filter-active-battles (player principal) (current-id uint) (max-id uint) (acc (list 20 uint)))
-  (if (> current-id max-id)
-    acc
-    (let
-      (
-        (battle (map-get? battles { battle-id: current-id }))
-      )
-      (if (is-some battle)
-        (let
-          (
-            (battle-data (unwrap-panic battle))
-            (is-participant (or (is-eq player (get player1 battle-data)) 
-                               (is-eq player (get player2 battle-data))))
-            (is-active (is-eq (get status battle-data) "active"))
-          )
-          (if (and is-participant is-active)
-            (filter-active-battles player (+ current-id u1) max-id (unwrap-panic (as-max-len? (append acc current-id) u20)))
-            (filter-active-battles player (+ current-id u1) max-id acc)
-          )
-        )
-        (filter-active-battles player (+ current-id u1) max-id acc)
-      )
-    )
-  )
-)
-
+;; Private helper function for updating player statistics
 (define-private (update-player-stats (player principal) (winner (optional principal)))
   (let
     (
@@ -238,6 +203,7 @@
   )
 )
 
+;; Read-only functions for querying contract state
 (define-read-only (get-battle (battle-id uint))
   (map-get? battles { battle-id: battle-id })
 )
@@ -250,40 +216,8 @@
   (var-get battle-counter)
 )
 
-(define-read-only (get-all-battles)
-  (map-values battles)
-)
-
-(define-read-only (get-all-player-stats)
-  (map-values player-stats)
-)
-
 (define-read-only (get-contract-owner)
   CONTRACT_OWNER
-)
-
-(define-read-only (get-contract-owner-stats)
-  (map-get? player-stats { player: CONTRACT_OWNER })
-)
-
-(define-read-only (get-contract-owner-battles)
-  (filter-active-battles CONTRACT_OWNER u1 (var-get battle-counter) (list))
-)
-
-(define-read-only (get-contract-info)
-  {
-    owner: CONTRACT_OWNER,
-    battle-count: (var-get battle-counter),
-    total-players: (map-size player-stats)
-  }
-)
-
-(define-read-only (get-contract-stats)
-  {
-    total-battles: (var-get battle-counter),
-    total-players: (map-size player-stats),
-    active-battles: (filter-active-battles CONTRACT_OWNER u1 (var-get battle-counter) (list))
-  }
 )
 
 (define-read-only (get-battle-status (battle-id uint))
@@ -298,3 +232,36 @@
   )
 )
 
+;; Get active battles for a specific player
+(define-read-only (get-player-active-battles (player principal))
+  (filter get-is-player-battle-active 
+          (map get-battle-id-from-index (list u1 u2 u3 u4 u5 u6 u7 u8 u9 u10 u11 u12 u13 u14 u15 u16 u17 u18 u19 u20)))
+)
+
+;; Helper function to get battle ID from index (only up to current battle count)
+(define-private (get-battle-id-from-index (index uint))
+  (if (<= index (var-get battle-counter)) index u0)
+)
+
+;; Helper function to check if a battle ID corresponds to an active battle for a player
+(define-private (get-is-player-battle-active (battle-id uint))
+  (if (is-eq battle-id u0) 
+    false
+    (match (map-get? battles { battle-id: battle-id })
+      battle-data (and (or (is-eq tx-sender (get player1 battle-data)) 
+                          (is-eq tx-sender (get player2 battle-data)))
+                      (is-eq (get status battle-data) "active"))
+      false
+    )
+  )
+)
+
+;; Get contract information
+(define-read-only (get-contract-info)
+  {
+    owner: CONTRACT_OWNER,
+    battle-count: (var-get battle-counter)
+  }
+)
+;; End of NFT Battle Arena contract
+;; Players can create battles, attack, heal, forfeit, and query battle and player statistics
