@@ -220,15 +220,19 @@
   CONTRACT_OWNER
 )
 
+;; Fixed: Return consistent tuple structure
 (define-read-only (get-battle-status (battle-id uint))
-  (let
-    (
-      (battle (map-get? battles { battle-id: battle-id }))
-    )
-    (if (is-some battle)
-      (unwrap-panic battle)
-      { status: "not found" }
-    )
+  (match (map-get? battles { battle-id: battle-id })
+    battle-data battle-data
+    {
+      player1: 'SP000000000000000000002Q6VF78,
+      player2: 'SP000000000000000000002Q6VF78,
+      player1-hp: u0,
+      player2-hp: u0,
+      current-turn: 'SP000000000000000000002Q6VF78,
+      status: "not found",
+      winner: none
+    }
   )
 )
 
