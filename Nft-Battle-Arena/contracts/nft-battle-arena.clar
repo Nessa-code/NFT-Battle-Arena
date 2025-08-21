@@ -237,3 +237,64 @@
     )
   )
 )
+
+(define-read-only (get-battle (battle-id uint))
+  (map-get? battles { battle-id: battle-id })
+)
+
+(define-read-only (get-player-stats (player principal))
+  (map-get? player-stats { player: player })
+)
+
+(define-read-only (get-battle-count)
+  (var-get battle-counter)
+)
+
+(define-read-only (get-all-battles)
+  (map-values battles)
+)
+
+(define-read-only (get-all-player-stats)
+  (map-values player-stats)
+)
+
+(define-read-only (get-contract-owner)
+  CONTRACT_OWNER
+)
+
+(define-read-only (get-contract-owner-stats)
+  (map-get? player-stats { player: CONTRACT_OWNER })
+)
+
+(define-read-only (get-contract-owner-battles)
+  (filter-active-battles CONTRACT_OWNER u1 (var-get battle-counter) (list))
+)
+
+(define-read-only (get-contract-info)
+  {
+    owner: CONTRACT_OWNER,
+    battle-count: (var-get battle-counter),
+    total-players: (map-size player-stats)
+  }
+)
+
+(define-read-only (get-contract-stats)
+  {
+    total-battles: (var-get battle-counter),
+    total-players: (map-size player-stats),
+    active-battles: (filter-active-battles CONTRACT_OWNER u1 (var-get battle-counter) (list))
+  }
+)
+
+(define-read-only (get-battle-status (battle-id uint))
+  (let
+    (
+      (battle (map-get? battles { battle-id: battle-id }))
+    )
+    (if (is-some battle)
+      (unwrap-panic battle)
+      { status: "not found" }
+    )
+  )
+)
+
