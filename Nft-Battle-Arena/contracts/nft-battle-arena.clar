@@ -29,3 +29,75 @@
   { player: principal }
   { wins: uint, losses: uint, battles: uint }
 )
+
+(define-public (create-battle (opponent principal))
+  (let
+    (
+      (battle-id (+ (var-get battle-counter) u1))
+      (initial-hp u100)
+    )
+    (asserts! (not (is-eq tx-sender opponent)) ERR_SAME_PLAYER)
+    (var-set battle-counter battle-id)
+    (map-set battles
+      { battle-id: battle-id }
+      {
+        player1: tx-sender,
+        player2: opponent,
+        player1-hp: initial-hp,
+        player2-hp: initial-hp,
+        current-turn: tx-sender,
+        status: "active",
+        winner: none
+      }
+    )
+    (ok battle-id)
+  )
+)
+
+(define-public (attack (battle-id uint) (damage uint))
+  (let
+    (
+      (battle (unwrap! (map-get? battles { battle-id: battle-id }) ERR_BATTLE_NOT_FOUND))
+      (is-player1 (is-eq tx-sender (get player1 battle)))
+      (is-player2 (is-eq tx-sender (get player2 battle)))
+      (is-current-turn (is-eq tx-sender (get current-turn battle)))
+    )
+    (asserts! (or is-player1 is-player2) ERR_UNAUTHORIZED)
+    (asserts! is-current-turn ERR_NOT_PLAYER_TURN)
+    (asserts! (is-eq (get status battle) "active") ERR_BATTLE_FINISHED)
+    (asserts! (and (> damage u0) (<= damage u30)) ERR_INVALID_ACTION)
+    
+    (let
+      (
+        (new-player1-hp (if is-player2 (- (get player1-hp battle) damage) (get player1-hp battle)))
+        (new-player2-hp (if is-player1 (- (get player2-hp battle) damage) (get player2-hp battle)))
+        (next-turn (if is-player1 (get player2 battle) (get player1 battle)))
+        (battle-over (or (<= new-player1-hp u0) (<= new-player2-hp u0)))
+        (winner (if battle-over
+                   (if (<= new-player1-hp u0) (some (get player2 battle)) (some (get player1 battle)))
+                   none))
+        (new-status (if battle-over "finished" "active"))
+      )
+      (map-set battles
+        { battle-id: battle-id }
+        {
+          player1: (get player1 battle),
+          player2: (get player2 battle),
+          player1-hp: new-player1-hp,
+          player2-hp: new-player2-hp,
+          current-turn: (if battle-over (get current-turn battle) next-turn),
+          status: new-status,
+          winner: winner
+        }
+      )
+      (if battle-over
+        (begin
+          (update-player-stats (get player1 battle) winner)
+          (update-player-stats (get player2 battle) winner)
+        )
+        true
+      )
+      (ok { damage: damage, battle-over: battle-over, winner: winner })
+    )
+  )
+)
